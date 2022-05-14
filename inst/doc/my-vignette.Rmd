@@ -1,6 +1,6 @@
 ---
 title: "PRECISION.array Vignette"
-author: "Huei-Chung Huang, Qihang Yang"
+author: "Huei-Chung Huang, Yilin Wu, Qihang Yang, Lixuan Qin"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -130,7 +130,7 @@ array.to.sample.assign <- list("all" = c(rep(c("E", "V"), each = 64),
 
 ```
 
-Next, for the training set, data were simulated through "virtual re-hybridization" by first assigning arrays to sample groups using a confounding design or a balanced design, and then summing the biological effect for a sample and the handling effect for its assigned array. For the test set, we used onlyt the biological effect data from the uniformly-handled dataset. Three study design functions assign arrays to samples (`confounding.design()`, `stratification.design()`, `blocking.design()`). Finally, `rehybridize()` is provided to sum biological effects to handling effects, following array-to-sample assignments. 
+Next, for the training set, data were simulated through "virtual re-hybridization" by first assigning arrays to sample groups using a confounding design or a balanced design, and then summing the biological effect for a sample and the handling effect for its assigned array. For the test set, we used only the biological effect data from the uniformly-handled dataset. Three study design functions assign arrays to samples (`confounding.design()`, `stratification.design()`, `blocking.design()`). Finally, `rehybridize()` is provided to sum biological effects to handling effects, following array-to-sample assignments. 
 
 ```{r study.design}
 # complete confounding
@@ -253,7 +253,7 @@ data.mn2 <- med.norm(test = test.dat, ref.dis = data.mn1$ref.dis)
 # quantile normalize (normalize training data + frozen normalize test data)
 data.qn <- quant.norm(train = train.dat, test = test.dat)
 
-# varaince stabilizing normalize (normalize training data + frozen normalize test data)
+# variance stabilizing normalize (normalize training data + frozen normalize test data)
 data.vsn <- vs.norm(train = train.dat, test = test.dat)
 
 ```
@@ -486,7 +486,29 @@ knitr::kable(data.frame(uni.handled.results.ridge$error_store[2, ]),
              caption = "Analysis of uniformly-handled data (with Ridge)")
 
 ```
+Below is another example to create a SVM classification with specific parameters.
 
+```{r custom sample, message=FALSE, warning=FALSE}
+library(e1071)
+
+"custom.intcv" <- function(kfold = 10, X, y, seed){
+  ptm <- proc.time()
+  set.seed(seed)
+
+  svm_tune = tune.svm(x = data.matrix(t(X)), y = factor(y), cost = 10^(-2:2), gamma = c(0.01, 0.1, 1), tunecontrol = tune.control(cross = kfold))
+
+  time <- proc.time() - ptm
+  return(list(mc = svm_tune$best.performance, time = time, model = svm_tune$best.model))
+}
+
+"custom.predict" <- function(custom.intcv.model, pred.obj, pred.obj.group.id){
+
+  pred <- predict(custom.intcv.model$model, newdata = t(pred.obj))
+  mc <- tabulate.ext.err.func(pred, pred.obj.group.id)
+
+  return(list(pred=pred, mc=mc))
+}
+```
 ## Simulation Result Manipulation and Visualization
 
 `PRECISION.array` output `R` objects resulted from `precision.simulate()` can be tidied into a list of data frames by `extract.precision.error()`. The list of data frames is easier to manipulate. A plotting function `plot.precision()` is offered to have a quick visualization on the simulation results. 
@@ -586,6 +608,7 @@ Again, it may be necessary to manipulate the confounding level of handling effec
 
 3. scale change 2 - scaling all probe expressions in arrays by the power of constants that are different for each batch. In our training data, there are four batches.
 
+4. multiply - per selected array, multiply all probe expressions by a constant.
 
 ```{r amplify.handling.effect, fig.align = "hold", fig.width = 7, fig.height = 7}
 handling.effect.nc.tr <- handling.effect.nc[, c(1:64, 129:192)]
@@ -594,7 +617,10 @@ handling.effect.nc.tr <- handling.effect.nc[, c(1:64, 129:192)]
 handling.effect.nc.tr.shift <- amplify.handling.effect(handling.effect = handling.effect.nc.tr,
        amplify.array.id = colnames(handling.effect.nc.tr)[1:64],
        amplify.level = 2, type = "shift")
-
+# multiply
+handling.effect.nc.tr.multiply <- amplify.handling.effect(handling.effect = handling.effect.nc.tr,
+       amplify.array.id = colnames(handling.effect.nc.tr)[1:64],
+       amplify.level = 2, type = "multiply")
 # scale change 1
 handling.effect.nc.tr.scale1 <- amplify.handling.effect(handling.effect = handling.effect.nc.tr,
        amplify.array.id = colnames(handling.effect.nc.tr)[1:64],
@@ -611,12 +637,14 @@ handling.effect.nc.tr.scale2 <- amplify.handling.effect(handling.effect = handli
        amplify.level = amplify.level,
        type = "scale2")
 
-par(mfrow = c(2, 2), mar = c(2, 2, 2, 1))
-rng <- range(handling.effect.nc.tr, handling.effect.nc.tr.shift, 
+#par(mfrow = c(2, 2), mar = c(2, 2, 2, 1))
+rng <- range(handling.effect.nc.tr, handling.effect.nc.tr.shift, handling.effect.nc.tr.multiply,
              handling.effect.nc.tr.scale1, handling.effect.nc.tr.scale2)
 boxplot(handling.effect.nc.tr, main = "Original",
         ylim = rng, pch = 20, cex = 0.2, xaxt = "n")
 boxplot(handling.effect.nc.tr.shift, main = "Shift",
+        ylim = rng, pch = 20, cex = 0.2, xaxt = "n")
+boxplot(handling.effect.nc.tr.multiply, main = "multiply",
         ylim = rng, pch = 20, cex = 0.2, xaxt = "n")
 boxplot(handling.effect.nc.tr.scale1, main = "Scaling 1",
         ylim = rng, pch = 20, cex = 0.2, xaxt = "n")
@@ -627,7 +655,7 @@ boxplot(handling.effect.nc.tr.scale2, main = "Scaling 2",
 
 ## Different Study Design Methods and Normalization Methods on Training and Test Sets
 
-Furthermore, we care about the cooeperative effects of different study design methods and normalization methods, separately on training and test sets. The function `precision.simulate.class()`, which is built upon the `precision.simulate()` , can apply different study design methods and normalization methods on training set and test set, and then fit more kinds of classifiers on the training set and predict them on test set. 
+Furthermore, we care about the cooperative effects of different study design methods and normalization methods, separately on training and test sets. The function `precision.simulate.class()`, which is built upon the `precision.simulate()` , can apply different study design methods and normalization methods on training set and test set, and then fit more kinds of classifiers on the training set and predict them on test set. 
 
 The built-in designs are "NONE", CC+", "CC-", "PC+", "PC-", "BLK", and "STR" for "No Rehybridization", "Complete Confounding 1",
 "Complete Confounding 2", "Partial Confounding 1", "Partial Confounding 2", "Blocking", and "Stratification" in Qin et al.
@@ -638,13 +666,13 @@ The built-in designs are "NONE", CC+", "CC-", "PC+", "PC-", "BLK", and "STR" for
 
 The build-in available normalization methods are "NN", "MN", "QN", "fMN", "fQN", "pMN", "pQN", "fVSN", for "No Normalization",
 "Median Normalization", "Quantile Normalization", "Frozen Median Normalization", "Frozen Quantile Normalization",
-"Pool Median Normalization", "Pool Quantile Normalization", "Frozen Vairance Stability Normalization".
+"Pool Median Normalization", "Pool Quantile Normalization", "Frozen Variance Stability Normalization".
 
 * Normalization methods on training set: {“NN”, “MN”, “QN”, "VSN"};
 
 * Normalization methods on test set: {“NN”, “MN”, “QN”, “fMN”, “fQN”, “pMN”, “pQN”, "VSN", "fVSN"}
 
-The build-in available classfication methods are "PAM", "LASSO", "ClaNC", "ranFor", "SVM", "kNN" and "DLDA",
+The build-in available classification methods are "PAM", "LASSO", "ClaNC", "ranFor", "SVM", "kNN" and "DLDA",
 for "Prediction Analysis for Microarrays", "Least Absolute Shrinkage and Selection Operator", "Classification to Nearest Centroids", "Random Forest", "Support Vector Machine", "K-Nearest Neighbors" and "Diagonal Linear Discriminant". You can also use your own classification method by setting \code{class.met} as "custom". The format to create `custom.intcv` and `custom.predict` please refers to other classification methods in this package.
 
 * Classifiers: {“PAM”, “LASSO”, “ClaNC”, “ranFor”, “SVM”, "kNN", "DLDA", "custom"}
@@ -701,7 +729,7 @@ knitr::kable(data.frame(precision.multiclass.results$error_store),
              caption = "precision.simulate.multiclass sample error output")
 
 ```
-You can use `plot.precision.multiclass()` to plot the average enternal error rates from the output of `precision.simulate.multiclass()`.
+You can use `plot.precision.multiclass()` to plot the average external error rates from the output of `precision.simulate.multiclass()`.
 
 
 ```{r error plot, fig.align='center', fig.height=4, fig.width=5, message=FALSE, warning=FALSE}
@@ -713,30 +741,7 @@ plot.precision.multiclass(data = precision.multiclass.results,
 ```
 
 
-If you want to use your own classification, please create a function called `custom.intcv()` to do the model fitting and one called `custom.predict()` to do the model prediction. Below is an example to create a SVM classification with specific parameters.
 
-
-```{r custom sample, message=FALSE, warning=FALSE}
-library(e1071)
-
-"custom.intcv" <- function(kfold = 10, X, y, seed){
-  ptm <- proc.time()
-  set.seed(seed)
-
-  svm_tune = tune.svm(x = data.matrix(t(X)), y = factor(y), cost = 10^(-2:2), gamma = c(0.01, 0.1, 1), tunecontrol = tune.control(cross = kfold))
-
-  time <- proc.time() - ptm
-  return(list(mc = svm_tune$best.performance, time = time, model = svm_tune$best.model))
-}
-
-"custom.predict" <- function(custom.intcv.model, pred.obj, pred.obj.group.id){
-
-  pred <- predict(custom.intcv.model$model, newdata = t(pred.obj))
-  mc <- tabulate.ext.err.func(pred, pred.obj.group.id)
-
-  return(list(pred=pred, mc=mc))
-}
-```
 
 
 

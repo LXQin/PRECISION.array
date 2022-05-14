@@ -157,7 +157,7 @@ text(x = 64.5, y = 0.75, labels = "Blocking")
 #  # quantile normalize (normalize training data + frozen normalize test data)
 #  data.qn <- quant.norm(train = train.dat, test = test.dat)
 #  
-#  # varaince stabilizing normalize (normalize training data + frozen normalize test data)
+#  # variance stabilizing normalize (normalize training data + frozen normalize test data)
 #  data.vsn <- vs.norm(train = train.dat, test = test.dat)
 #  
 
@@ -348,6 +348,27 @@ knitr::kable(data.frame(uni.handled.results.ridge$error_store[2, ]),
              caption = "Analysis of uniformly-handled data (with Ridge)")
 
 
+## ----custom sample, message=FALSE, warning=FALSE------------------------------
+library(e1071)
+
+"custom.intcv" <- function(kfold = 10, X, y, seed){
+  ptm <- proc.time()
+  set.seed(seed)
+
+  svm_tune = tune.svm(x = data.matrix(t(X)), y = factor(y), cost = 10^(-2:2), gamma = c(0.01, 0.1, 1), tunecontrol = tune.control(cross = kfold))
+
+  time <- proc.time() - ptm
+  return(list(mc = svm_tune$best.performance, time = time, model = svm_tune$best.model))
+}
+
+"custom.predict" <- function(custom.intcv.model, pred.obj, pred.obj.group.id){
+
+  pred <- predict(custom.intcv.model$model, newdata = t(pred.obj))
+  mc <- tabulate.ext.err.func(pred, pred.obj.group.id)
+
+  return(list(pred=pred, mc=mc))
+}
+
 ## ----precision.vis, eval = TRUE, fig.width = 8, fig.height = 6----------------
 
 # for outputs from either precision.simulate() or precision.simulate.flex()
@@ -426,7 +447,10 @@ handling.effect.nc.tr <- handling.effect.nc[, c(1:64, 129:192)]
 handling.effect.nc.tr.shift <- amplify.handling.effect(handling.effect = handling.effect.nc.tr,
        amplify.array.id = colnames(handling.effect.nc.tr)[1:64],
        amplify.level = 2, type = "shift")
-
+# multiply
+handling.effect.nc.tr.multiply <- amplify.handling.effect(handling.effect = handling.effect.nc.tr,
+       amplify.array.id = colnames(handling.effect.nc.tr)[1:64],
+       amplify.level = 2, type = "multiply")
 # scale change 1
 handling.effect.nc.tr.scale1 <- amplify.handling.effect(handling.effect = handling.effect.nc.tr,
        amplify.array.id = colnames(handling.effect.nc.tr)[1:64],
@@ -443,12 +467,14 @@ handling.effect.nc.tr.scale2 <- amplify.handling.effect(handling.effect = handli
        amplify.level = amplify.level,
        type = "scale2")
 
-par(mfrow = c(2, 2), mar = c(2, 2, 2, 1))
-rng <- range(handling.effect.nc.tr, handling.effect.nc.tr.shift, 
+#par(mfrow = c(2, 2), mar = c(2, 2, 2, 1))
+rng <- range(handling.effect.nc.tr, handling.effect.nc.tr.shift, handling.effect.nc.tr.multiply,
              handling.effect.nc.tr.scale1, handling.effect.nc.tr.scale2)
 boxplot(handling.effect.nc.tr, main = "Original",
         ylim = rng, pch = 20, cex = 0.2, xaxt = "n")
 boxplot(handling.effect.nc.tr.shift, main = "Shift",
+        ylim = rng, pch = 20, cex = 0.2, xaxt = "n")
+boxplot(handling.effect.nc.tr.multiply, main = "multiply",
         ylim = rng, pch = 20, cex = 0.2, xaxt = "n")
 boxplot(handling.effect.nc.tr.scale1, main = "Scaling 1",
         ylim = rng, pch = 20, cex = 0.2, xaxt = "n")
@@ -508,25 +534,4 @@ plot.precision.multiclass(data = precision.multiclass.results,
                           class.order = c("SVM", "kNN", "ClaNC"),
                           ylim = c(0,0.5),
                           save.name = NULL)
-
-## ----custom sample, message=FALSE, warning=FALSE------------------------------
-library(e1071)
-
-"custom.intcv" <- function(kfold = 10, X, y, seed){
-  ptm <- proc.time()
-  set.seed(seed)
-
-  svm_tune = tune.svm(x = data.matrix(t(X)), y = factor(y), cost = 10^(-2:2), gamma = c(0.01, 0.1, 1), tunecontrol = tune.control(cross = kfold))
-
-  time <- proc.time() - ptm
-  return(list(mc = svm_tune$best.performance, time = time, model = svm_tune$best.model))
-}
-
-"custom.predict" <- function(custom.intcv.model, pred.obj, pred.obj.group.id){
-
-  pred <- predict(custom.intcv.model$model, newdata = t(pred.obj))
-  mc <- tabulate.ext.err.func(pred, pred.obj.group.id)
-
-  return(list(pred=pred, mc=mc))
-}
 
