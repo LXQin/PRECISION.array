@@ -1,42 +1,20 @@
 Package: PRECISION.array
-Title: Paired Microarray Simulation on Study Design for Molecular
-    Classification
+Type: Package
+Title: Paired microarray simulation on study design for molecular classification
 Version: 1.0.0
-Authors@R: c(
-    person("Huei-Chung", "Huang", , "hueichunghuang@gmail.com", role = c("aut", "cre")),
-    person("Qihang", "Yang", , "qy2231@columbia.edu", role = c("aut", "cre")),
-    person("Yilin", "Wu", , "yw3376@columbia.edu", role = c("aut", "cre")),
-    person("Li-Xuan", "Qin", , "qinl@mskcc.org", role = c("aut", "ths"))
-  )
-Description: Allow users to reuse a unique pair of Agilent microRNA
-    microarray datasets and to reproduce and extend the simulation studies
-    reported in the paper at the URL below.
+Date: 2022-05-14
+Author: Huei-Chung Huang, Li-Xuan Qin, Qihang Yang, Yilin Wu
+Maintainer: Huei-Chung Huang <hueichunghuang@gmail.com>
+Description: Allow users to reuse a unique pair of Agilent microRNA microarray datasets and to reproduce and extend the simulation studies reported in the paper at the URL below.
 License: GPL (>= 2)
-URL: http://clincancerres.aacrjournals.org/content/20/13/3371.long
-Depends: 
-    R (>= 3.5.0)
-Imports: 
-    caret,
-    e1071,
-    glmnet,
-    HiDimDA,
-    limma,
-    mclust,
-    pamr,
-    preprocessCore,
-    randomForest,
-    ruv,
-    sva,
-    vsn
-Suggests: 
-    knitr,
-    rmarkdown
-VignetteBuilder: 
-    knitr
-check_name: TRUE
+Depends: R (>= 3.5.0)
 Encoding: UTF-8
+Imports: glmnet, limma, pamr, preprocessCore, ruv, sva, vsn, e1071,
+        randomForest, HiDimDA, caret, mclust
+URL: http://clincancerres.aacrjournals.org/content/20/13/3371.long
 LazyData: TRUE
-NeedsCompilation: no
-roxygen: TRUE
-Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.2
+Suggests: knitr, rmarkdown
+VignetteBuilder: knitr
+NeedsCompilation: no
+Packaged: 2022-05-14 05:34:41 UTC; yangqihang
